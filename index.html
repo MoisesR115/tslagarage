@@ -66,7 +66,7 @@
         line-height: 1.45;
         -webkit-font-smoothing: antialiased;
       }
-      .wrap { max-width: 1120px; margin: 0 auto; padding: 20px 16px 48px; }
+      .wrap { max-width: 1120px; margin: 0 auto; padding: 20px 16px 48px; position: relative; z-index: 1; }
       h1, h2, h3 { font-family: "Barlow Condensed", "Barlow", sans-serif; margin: 0; letter-spacing: 0.01em; }
       .topbar {
         display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap;
@@ -85,11 +85,75 @@
       }
       .settings-btn svg { width: 17px; height: 17px; flex: 0 0 auto; }
       .settings-btn[aria-expanded="true"] { border-color: var(--ink); }
-      .settings-panel {
-        position: absolute; right: 0; top: calc(100% + 8px); width: 264px; z-index: 60;
+      /* Viewport-fixed and placed by JS (placePanel) just under its
+         top-bar button: always fully on screen, never hanging over
+         the gauge cluster below the top bar. max-height + internal
+         scrolling caps it to the space above the dashboard. */
+      .settings-panel, .scene-panel {
+        position: fixed; top: 8px; left: 8px; width: min(300px, calc(100vw - 16px)); z-index: 60;
+        max-height: calc(100vh - 16px); overflow-y: auto;
         background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
         box-shadow: var(--shadow); padding: 14px;
       }
+      .bg-toggle { width: 100%; justify-content: flex-start; margin-top: 2px; }
+      /* ---------- Scenes ---------- */
+      .scenes { position: relative; flex: 0 0 auto; }
+      .scene-layer { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+      .scene-layer[hidden] { display: none; }
+      .scene-layer.plaid::after {
+        content: ""; position: absolute; inset: 0;
+        background:
+          repeating-linear-gradient(90deg, rgba(255, 70, 60, 0.10) 0 26px, transparent 26px 92px),
+          repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.05) 0 18px, transparent 18px 76px);
+      }
+      .scene-stars {
+        position: absolute; inset: 0; opacity: 0;
+        background-image:
+          radial-gradient(1.6px 1.6px at 20px 30px, #ffffff 50%, transparent 51%),
+          radial-gradient(1.2px 1.2px at 130px 90px, #ffffff 50%, transparent 51%),
+          radial-gradient(1.4px 1.4px at 220px 50px, #cfe0ff 50%, transparent 51%),
+          radial-gradient(1px 1px at 300px 130px, #ffffff 50%, transparent 51%),
+          radial-gradient(1.3px 1.3px at 70px 160px, #ffffff 50%, transparent 51%),
+          radial-gradient(1px 1px at 180px 190px, #ffe9c9 50%, transparent 51%),
+          radial-gradient(1.5px 1.5px at 330px 24px, #ffffff 50%, transparent 51%);
+        background-size: 360px 210px; background-repeat: repeat;
+      }
+      .scene-far, .scene-near {
+        position: absolute; left: 0; bottom: 0; width: calc(100% + 600px);
+        background-repeat: repeat-x; background-position: 0 100%; background-size: 600px 100%;
+        will-change: transform;
+      }
+      .scene-far { height: 54%; }
+      .scene-near { height: 34%; }
+      /* Plaid light streaks: short dashes at rest, stretched by
+         scaleX in the render loop as speed rises. */
+      .scene-streaks {
+        position: absolute; left: 0; top: 16%; height: 48%; width: calc(100% + 600px);
+        background-repeat: repeat-x; background-size: 600px 100%; background-position: 0 50%;
+        will-change: transform; transform-origin: 0 50%; opacity: 0;
+      }
+      /* Neon Drive: horizon glow in pink/cyan, and a wet-road
+         reflection shimmer across the lower band. */
+      .scene-layer.neon::before {
+        content: ""; position: absolute; inset: 0;
+        background:
+          radial-gradient(60% 30% at 30% 62%, rgba(255, 45, 150, 0.20), transparent 70%),
+          radial-gradient(50% 26% at 72% 60%, rgba(0, 229, 255, 0.16), transparent 70%);
+      }
+      .scene-layer.neon::after {
+        content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 34%;
+        background:
+          linear-gradient(180deg, transparent, rgba(10, 4, 24, 0.25)),
+          repeating-linear-gradient(90deg, rgba(255, 45, 150, 0.10) 0 34px, transparent 34px 90px, rgba(0, 229, 255, 0.10) 90px 130px, transparent 130px 210px, rgba(176, 38, 255, 0.09) 210px 240px, transparent 240px 320px);
+      }
+      .scene-list { display: flex; flex-direction: column; gap: 6px; }
+      .scene-opt {
+        appearance: none; cursor: pointer; display: flex; align-items: center; gap: 10px; width: 100%;
+        border: 1.5px solid var(--line); background: var(--panel); color: var(--ink);
+        border-radius: 9px; padding: 7px 9px; font: 600 14px "Barlow", sans-serif; text-align: left;
+      }
+      .scene-opt[aria-pressed="true"] { border-color: var(--ink); }
+      .scene-swatch { flex: 0 0 40px; width: 40px; height: 24px; border-radius: 5px; border: 1px solid var(--line); }
       .settings-panel .ctl-label { margin-bottom: 8px; }
       .settings-note { margin: 10px 0 0; font-size: 13px; color: var(--muted); }
       .dash {
@@ -128,8 +192,10 @@
       .gear-box .g-num { font-family: "Barlow Condensed", sans-serif; font-size: 40px; font-weight: 700; line-height: 1; }
       .gear-box .g-row { display: flex; align-items: center; justify-content: center; }
       .shift-arrow {
-        width: 24px; flex: 0 0 24px; font-size: 21px; line-height: 1; text-align: center; visibility: hidden;
+        width: 24px; flex: 0 0 24px; display: flex; align-items: center; justify-content: center; visibility: hidden;
       }
+      .shift-arrow svg { width: 17px; height: 17px; display: block; }
+      .shift-btn svg { width: 13px; height: 13px; vertical-align: -1px; }
       .shift-arrow.up-red { visibility: visible; color: var(--accent); }
       .shift-arrow.flash { visibility: visible; color: var(--amber); }
       @media (prefers-reduced-motion: no-preference) {
@@ -296,6 +362,12 @@
     </style>
   </head>
   <body>
+    <div class="scene-layer" id="sceneLayer" aria-hidden="true" hidden>
+      <div class="scene-stars" id="sceneStars"></div>
+      <div class="scene-far" id="sceneFar"></div>
+      <div class="scene-streaks" id="sceneStreaks"></div>
+      <div class="scene-near" id="sceneNear"></div>
+    </div>
     <div class="wrap">
       <div class="topbar">
         <h1>TSLA<span class="thin">garage</span></h1>
@@ -321,13 +393,35 @@
                 <button id="themeSystem" aria-pressed="true">System</button>
               </div>
               <p class="settings-note">System follows your device's own light/dark setting.</p>
+              <div class="ctl-label" style="margin-top:16px;">Sound</div>
+              <button class="toggle bg-toggle" id="bgAudioBtn" aria-pressed="true"><span class="pip"></span>Play sound in the background</button>
+              <p class="settings-note">Turn off to play your own music alongside: sounds then only play while the browser is open.</p>
+            </div>
+          </div>
+          <div class="scenes">
+            <button class="settings-btn" id="sceneBtn" aria-haspopup="true" aria-expanded="false" aria-controls="scenePanel">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.4" fill="currentColor" stroke="none"/><path d="M3 17l5.5-4.5 4 3.5L17 11l4 4.5"/></svg>
+              <span>Scenes</span>
+            </button>
+            <div class="scene-panel" id="scenePanel" role="group" aria-label="Scenes" hidden>
+              <div class="ctl-label">Scene</div>
+              <div class="scene-list" id="sceneList">
+                <button class="scene-opt" data-scene="off" aria-pressed="true"><span class="scene-swatch" style="background: var(--panel-2);"></span>No scene</button>
+                <button class="scene-opt" data-scene="desert" aria-pressed="false"><span class="scene-swatch" style="background: linear-gradient(180deg, #f6b26b, #e2703a);"></span>Desert Highway</button>
+                <button class="scene-opt" data-scene="city" aria-pressed="false"><span class="scene-swatch" style="background: linear-gradient(180deg, #0b1026, #3a3f6b);"></span>City Night</button>
+                <button class="scene-opt" data-scene="coast" aria-pressed="false"><span class="scene-swatch" style="background: linear-gradient(180deg, #8ec9e8, #cfeef5);"></span>Coastal Drive</button>
+                <button class="scene-opt" data-scene="forest" aria-pressed="false"><span class="scene-swatch" style="background: linear-gradient(180deg, #b9cfae, #4c7a52);"></span>Forest Road</button>
+                <button class="scene-opt" data-scene="neon" aria-pressed="false"><span class="scene-swatch" style="background: linear-gradient(180deg, #070313 52%, #ff2d95 54%, #00e5ff 68%, #160a33);"></span>Neon Drive</button>
+                <button class="scene-opt" data-scene="plaid" aria-pressed="false"><span class="scene-swatch" style="background: linear-gradient(180deg, #05060f, #2a1150);"></span>Plaid</button>
+              </div>
+              <p class="settings-note">The backdrop rolls past at your speed, near layer faster than far.</p>
             </div>
           </div>
         </div>
       </div>
 
       <div class="manual-note" id="manualNote" role="note" hidden>
-        <p><b>Manual:</b> you shift the gears yourself. In the car, tap the on-screen Shift buttons, or press the steering wheel scroll button to shift up. Rolling the wheel does not work in the car browser. On a computer, the mouse wheel works too.</p>
+        <p><b>Manual:</b> you shift the gears yourself. In the car, tap the on-screen Shift buttons, or press the steering wheel scroll button to shift up. Rolling the wheel does not work in the car browser. On a computer, the mouse wheel works too, and the <b>E</b> key shifts up while <b>Q</b> shifts down.</p>
         <button class="manual-note-close" id="manualNoteClose" aria-label="Dismiss manual shifting note">Close</button>
       </div>
 
@@ -361,7 +455,7 @@
               <div class="g-label">Gear</div>
               <div class="g-row"><span class="g-num" id="gearNum">N</span><span class="shift-arrow" id="shiftArrow" aria-hidden="true"></span></div>
             </div>
-            <div class="mode-status" id="modeStatus">Start the engine, then hold the throttle pedal (or press ↑) to drive.</div>
+            <div class="mode-status" id="modeStatus">Start the engine, then hold the throttle pedal (or hold W) to drive.</div>
           </div>
         </section>
 
@@ -384,10 +478,10 @@
           <div id="manualBlock" hidden>
             <div class="ctl-label">Manual shift</div>
             <div class="shift-btns">
-              <button class="shift-btn" id="shiftDownBtn">&#9660; Shift down</button>
-              <button class="shift-btn" id="shiftUpBtn">Shift up &#9650;</button>
+              <button class="shift-btn" id="shiftDownBtn"><svg viewBox="0 0 20 20" aria-hidden="true"><polygon points="2,3 18,3 10,18" fill="currentColor"/></svg> Shift down</button>
+              <button class="shift-btn" id="shiftUpBtn">Shift up <svg viewBox="0 0 20 20" aria-hidden="true"><polygon points="10,2 18,17 2,17" fill="currentColor"/></svg></button>
             </div>
-            <p class="rev-hint">In the car, your Tesla's left scroll wheel does this: scroll up to shift up, scroll down to shift down, press and hold the wheel to rev. On this page the mouse wheel and middle button work the same way while the engine runs.</p>
+            <p class="rev-hint">In the car, your Tesla's left scroll wheel does this: scroll up to shift up, scroll down to shift down, press and hold the wheel to rev. On this page the mouse wheel and middle button work the same way while the engine runs. On a keyboard, E shifts up and Q shifts down.</p>
           </div>
 
           <div id="pedalBlock">
@@ -425,7 +519,7 @@
                 <span class="pedal-shine" aria-hidden="true"></span>
                 </span>
                 <span class="p-name">Brake</span>
-                <span class="p-hint">hold, or ↓ key · press low for a hard stop · orange fill = how hard</span>
+                <span class="p-hint">hold, or S key · press low for a hard stop · orange fill = how hard</span>
               </button>
               <button class="pedal gas" id="gasPedal" aria-label="Gas pedal">
                 <span class="pedal-plate">
@@ -462,7 +556,7 @@
                 <span class="pedal-shine" aria-hidden="true"></span>
                 </span>
                 <span class="p-name">Gas</span>
-                <span class="p-hint">hold, or ↑ key · top holds speed, low floors it · orange fill = how hard</span>
+                <span class="p-hint">hold, or W key · top holds speed, low floors it · orange fill = how hard</span>
               </button>
             </div>
             <div style="margin-top:12px;">
@@ -686,6 +780,7 @@
         bpmCur: 56, hbPhase: 0, hbDub: false, scOnFor: 0, scOffFor: 0, moanCool: 0,
         bellArmed: false, bellCool: 0, bellTolls: 0, bellTollIn: 0,
         gpsSpeed: null, gpsThrottle: 0, gpsLast: null, gpsError: false,
+        sceneFar: 0, sceneNear: 0,
         time: 0
       };
 
@@ -1416,6 +1511,14 @@
         if (S.running && !(nodes && nodes.useWorklet)) schedulePulses();
         stepHeartbeat(dt);
         updateAudio(S.running ? 1 : 0);
+        /* Scene parallax: distance accrues from road speed only, so
+           the backdrop is dead still at a standstill. Two layers,
+           near ground rolling ~2.3x faster than the far skyline. */
+        if (sceneName) {
+          var spdPx = S.speed / 3.6; // m/s
+          S.sceneFar += spdPx * dt * 7;
+          S.sceneNear += spdPx * dt * 16;
+        }
       }
       function sstep01(x) { x = clamp(x, 0, 1); return x * x * (3 - 2 * x); }
       function scapeLoad() { return clamp(Math.max(S.throttle, S.revPedal), 0, 1); }
@@ -1643,9 +1746,21 @@
             }
           } else if (S.cranking <= 0) {
             var t = clamp(S.throttle, 0, 1);
-            var upPoint = E.idle + (E.redline * 0.985 - E.idle) * (0.30 + 0.70 * Math.pow(t, 1.6));
             var brakeEff = Math.max(S.brakeOut, demoBrake || 0);
+            /* Eco bias (automatic only — the manual branch above is
+               untouched): at calm demand (light throttle, no braking —
+               cruise, coast, steady speed) the upshift point drops so
+               the box walks up toward a tall gear and the revs settle
+               low, and the coast-downshift point drops with it so the
+               box doesn't hunt straight back down. The moment demand
+               rises (throttle or brake), the standard map below
+               applies unchanged: later upshifts, kickdown on tip-in. */
+            var calm = t < 0.32 && brakeEff < 0.05;
+            var upFrac = 0.30 + 0.70 * Math.pow(t, 1.6);
+            if (calm) upFrac = 0.14 + 0.50 * t;
+            var upPoint = E.idle + (E.redline * 0.985 - E.idle) * upFrac;
             var coastPoint = (1300 + (2100 - 1300) * clamp(E.char, 0, 1)) + 400 * brakeEff;
+            if (calm) coastPoint = E.idle + 320;
             if (S.kickArm && t > 0.86 && S.gear > 1 && targetRpm < E.redline * 0.55) {
               var kg = S.gear - 1;
               while (kg > 1 && kg > S.gear - 2 && rpmInGear(kg - 1) < E.redline * 0.9) kg--;
@@ -1967,6 +2082,9 @@
       }
       var needle = $("#needle"), speedNum = $("#speedNum"), rpmNum = $("#rpmNum"),
           gearNum = $("#gearNum"), shiftArrow = $("#shiftArrow"), throttleFill = $("#throttleFill"), cluster = $("#cluster");
+      var TRI_UP_SVG = '<svg viewBox="0 0 20 20" aria-hidden="true"><polygon points="10,2 18,17 2,17" fill="currentColor"/></svg>';
+      var TRI_DN_SVG = '<svg viewBox="0 0 20 20" aria-hidden="true"><polygon points="2,3 18,3 10,18" fill="currentColor"/></svg>';
+      var shiftArrowState = "";
       var gasFillEl = $("#gasFill"), gasFillEdge = $("#gasFillEdge"),
           brakeFillEl = $("#brakeFill"), brakeFillEdge = $("#brakeFillEdge");
       /* The teslasound.io press fill: orange grows from the top of the
@@ -1990,19 +2108,41 @@
         else if (S.shifting > 0) gearNum.textContent = S.shiftFrom + "▸" + S.gear;
         else gearNum.textContent = (S.speed < 2 && S.mode === "pedal" && S.pedal > 0.5) ? "1" : S.gear;
         /* Shift indicator, manual gearbox only, to the right of the gear
-           number: a steady red ▲ at the redline says shift up; right
-           after a shift the arrow flashes yellow — ▲ on an upshift,
-           ▼ on a downshift — for about two-thirds of a second. */
-        var arrowChar = "", arrowCls = "shift-arrow";
+           number: a steady red triangle at the redline says shift up;
+           right after a shift the triangle flashes yellow — pointing
+           up on an upshift, down on a downshift — for about two-thirds
+           of a second. Drawn as inline SVG, never a font glyph: the
+           Tesla browser's font has no triangle characters and showed
+           a missing-glyph box beside the gear number. */
+        var arrowState = "", arrowCls = "shift-arrow";
         if (S.gearbox === "manual" && S.running) {
           if (S.lastShiftDir !== 0 && S.time - S.lastShiftT < 0.7) {
-            arrowChar = S.lastShiftDir > 0 ? "▲" : "▼"; arrowCls += " flash";
+            arrowState = S.lastShiftDir > 0 ? "up" : "dn"; arrowCls += " flash";
           } else if (S.shifting <= 0 && S.gear < E.ratios.length && S.rpm >= E.redline * 0.97) {
-            arrowChar = "▲"; arrowCls += " up-red";
+            arrowState = "up"; arrowCls += " up-red";
           }
         }
-        if (shiftArrow.textContent !== arrowChar) shiftArrow.textContent = arrowChar;
+        if (shiftArrowState !== arrowState) {
+          shiftArrowState = arrowState;
+          shiftArrow.innerHTML = arrowState === "up" ? TRI_UP_SVG : arrowState === "dn" ? TRI_DN_SVG : "";
+        }
         if (shiftArrow.className !== arrowCls) shiftArrow.className = arrowCls;
+        /* Scene parallax: cheap transforms only, offsets mod the
+           600 px tile so the repeat-x backgrounds loop seamlessly. */
+        if (sceneName) {
+          sceneFarEl.style.transform = "translateX(" + (-(S.sceneFar % 600)).toFixed(1) + "px)";
+          sceneNearEl.style.transform = "translateX(" + (-(S.sceneNear % 600)).toFixed(1) + "px)";
+          /* Plaid streaks: same speed value drives both the scroll
+             and the stretch — calm short dashes at a standstill,
+             long warp streaks at speed. One transform, no repaint. */
+          if (sceneName === "plaid") {
+            var sf = clamp(S.speed / 180, 0, 1);
+            var stretch = 1 + sf * 2.2;
+            var sOff = (S.sceneFar * 1.7) % (600 * stretch);
+            sceneStreaksEl.style.opacity = (0.3 + 0.7 * sf).toFixed(2);
+            sceneStreaksEl.style.transform = "translateX(" + (-sOff).toFixed(1) + "px) scaleX(" + stretch.toFixed(2) + ")";
+          }
+        }
         throttleFill.style.width = (S.throttle * 100).toFixed(0) + "%";
         gasPedal.style.transform = "translateY(" + (S.pedal * 7).toFixed(1) + "px)";
         brakePedal.style.transform = "translateY(" + (S.brake * 7).toFixed(1) + "px)";
@@ -2068,6 +2208,7 @@
       var modeStatus = $("#modeStatus");
       function setStatus() {
         statusDot.classList.toggle("on", S.running);
+        syncMediaSession();
         statusText.textContent = S.running ? (S.cranking > 0 ? "Cranking…" : "Engine running") : "Engine off";
         startBtn.classList.toggle("running", S.running);
         startBtn.setAttribute("aria-pressed", S.running ? "true" : "false");
@@ -2120,7 +2261,7 @@
         manualBlock.hidden = g !== "manual";
         if (manualNote) manualNote.hidden = g !== "manual";
         if (g === "manual" && S.mode === "pedal") {
-          modeStatus.textContent = "Manual gearbox: the gears are yours now. Scroll up to shift up, scroll down to shift down, hold the wheel button (or REV) to rev — and watch for the red arrow at the redline.";
+          modeStatus.textContent = "Manual gearbox: the gears are yours now. Scroll up to shift up, scroll down to shift down, hold the wheel button (or REV) to rev — or press E to shift up and Q to shift down. Watch for the red triangle at the redline.";
         } else if (g === "auto" && S.mode === "pedal") {
           modeStatus.textContent = "Automatic gearbox: the box shifts itself again — early on a light foot, at the redline floored, with kickdown when you bury it.";
         }
@@ -2144,10 +2285,18 @@
          shifts up, scroll down shifts down. In the browser that's the
          mouse wheel — intercepted only in Manual with the engine
          running, so page scrolling is untouched everywhere else.
-         Trackpads emit many small deltas, so accumulate to a notch. */
+         A wheel event counts as a shift ONLY when it looks like a
+         discrete mouse-wheel notch: line-mode deltas, or a single
+         pixel delta of 50+. Smooth trackpad two-finger scrolling
+         (pixel mode, small deltas) is ignored entirely — no
+         preventDefault — so the page scrolls normally. Notches
+         accumulate to the shift threshold; the accumulator resets
+         after each shift, which is the debounce between shifts. */
       var wheelAcc = 0;
       window.addEventListener("wheel", function (e) {
         if (S.gearbox !== "manual" || !S.running || e.ctrlKey) return;
+        var discrete = e.deltaMode === 1 || Math.abs(e.deltaY) >= 50;
+        if (!discrete) return;
         e.preventDefault();
         wheelAcc += e.deltaY * (e.deltaMode === 1 ? 16 : 1);
         if (Math.abs(wheelAcc) >= 40) {
@@ -2200,19 +2349,18 @@
       /* Wheel-press shifting: a Tesla scroll-wheel press reaches the
          browser as Enter (or NumpadEnter). In Manual with the engine
          running that upshifts through driverShift — the exact same
-         path the wheel-up handler above uses. ArrowUp / ArrowDown are
-         treated the same way in case a car browser maps wheel motion
-         to arrow keys. Nothing happens in Automatic mode. */
+         path the wheel-up handler above uses. E shifts up and Q
+         shifts down in Manual too, same path, same yellow flash.
+         Arrow keys are deliberately NOT mapped: they scroll the
+         page. Nothing here happens in Automatic mode. */
       window.addEventListener("keydown", function (e) {
         var tag = e.target && e.target.tagName ? String(e.target.tagName).toLowerCase() : "";
         if (tag === "input" || tag === "select" || tag === "textarea") return;
         if (e.repeat) return;
         if (S.gearbox !== "manual" || !S.running) return;
         var isEnter = e.key === "Enter" || e.code === "Enter" || e.code === "NumpadEnter";
-        var isUp = e.key === "ArrowUp" || e.code === "ArrowUp";
-        var isDown = e.key === "ArrowDown" || e.code === "ArrowDown";
-        if (isEnter || isUp) driverShift(1);
-        else if (isDown) driverShift(-1);
+        if (isEnter || e.code === "KeyE") driverShift(1);
+        else if (e.code === "KeyQ") driverShift(-1);
       });
 
       function startGps() {
@@ -2296,15 +2444,19 @@
       });
       window.addEventListener("auxclick", function (e) { if (e.button === 1) e.preventDefault(); });
       revBtn.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+      /* Driving keys: W is gas, S is brake, R holds REV — nothing
+         else. Space is not gas (it keeps its normal page behavior)
+         and the arrow keys are not mapped at all: they scroll the
+         page, so nothing here preventDefaults them. */
       window.addEventListener("keydown", function (e) {
         if (e.repeat) return;
-        if (e.code === "ArrowUp" || e.code === "KeyW" || e.code === "Space") { S.pedal = 1; gasPedal.classList.add("pressed"); if (e.code === "Space") e.preventDefault(); }
-        if (e.code === "ArrowDown" || e.code === "KeyS") { S.brake = 1; brakePedal.classList.add("pressed"); }
+        if (e.code === "KeyW") { S.pedal = 1; gasPedal.classList.add("pressed"); }
+        if (e.code === "KeyS") { S.brake = 1; brakePedal.classList.add("pressed"); }
         if (e.code === "KeyR") revOn();
       });
       window.addEventListener("keyup", function (e) {
-        if (e.code === "ArrowUp" || e.code === "KeyW" || e.code === "Space") { S.pedal = 0; gasPedal.classList.remove("pressed"); }
-        if (e.code === "ArrowDown" || e.code === "KeyS") { S.brake = 0; brakePedal.classList.remove("pressed"); }
+        if (e.code === "KeyW") { S.pedal = 0; gasPedal.classList.remove("pressed"); }
+        if (e.code === "KeyS") { S.brake = 0; brakePedal.classList.remove("pressed"); }
         if (e.code === "KeyR") revOff();
       });
 
@@ -2357,9 +2509,34 @@
       applyTheme();
 
       var settingsBtn = $("#settingsBtn"), settingsPanel = $("#settingsPanel");
+      /* Place a top-bar popup panel in the viewport: fixed just under
+         its button, left clamped inside the viewport with 8 px
+         margins, and max-height capped at the top of the dashboard
+         so it can never hang over the gauge cluster — it scrolls
+         internally instead. Recomputed on every open and resize. */
+      function placePanel(panel, btn, capToDash) {
+        var r = btn.getBoundingClientRect();
+        var vw = window.innerWidth || document.documentElement.clientWidth;
+        var vh = window.innerHeight || document.documentElement.clientHeight;
+        var w = panel.offsetWidth;
+        var left = Math.round(clamp(r.right - w, 8, Math.max(8, vw - w - 8)));
+        var top = Math.round(clamp(r.bottom + 8, 8, Math.max(8, vh - 140)));
+        panel.style.left = left + "px";
+        panel.style.top = top + "px";
+        var limit = vh - 8;
+        if (capToDash) {
+          var dash = document.querySelector(".dash");
+          if (dash) {
+            var dr = dash.getBoundingClientRect();
+            if (dr.top > top + 40) limit = Math.min(limit, Math.round(dr.top) - 8);
+          }
+        }
+        panel.style.maxHeight = Math.max(120, limit - top) + "px";
+      }
       function setSettingsOpen(open) {
         settingsPanel.hidden = !open;
         settingsBtn.setAttribute("aria-expanded", open ? "true" : "false");
+        if (open) { setSceneOpen(false); placePanel(settingsPanel, settingsBtn, true); }
       }
       settingsBtn.addEventListener("click", function (e) {
         e.stopPropagation();
@@ -2372,14 +2549,221 @@
         if (e.key === "Escape" && !settingsPanel.hidden) { setSettingsOpen(false); settingsBtn.focus(); }
       });
 
+      /* ================= Background audio =================
+         Settings toggle, default ON. ON: the page registers itself
+         as media playback (Media Session, title TSLAgarage,
+         playbackState tracking the engine) and refuses to pause
+         when hidden — the AudioContext is resumed if the browser
+         suspended it, and because requestAnimationFrame stops in a
+         hidden tab, a fallback timer on the audio clock keeps
+         stepping the simulation. OFF: none of that — the context
+         suspends when the page is hidden, so sounds only play
+         while the browser is open. Scheduling only: no DSP,
+         synthesis or tuning values change either way. */
+      var bgAudio = true, msRegistered = false;
+      var bgAudioBtn = $("#bgAudioBtn");
+      function syncMediaSession() {
+        if (!("mediaSession" in navigator)) return;
+        try {
+          if (bgAudio) {
+            if (!msRegistered && typeof MediaMetadata !== "undefined") {
+              navigator.mediaSession.metadata = new MediaMetadata({
+                title: "TSLAgarage",
+                artist: "EV engine sound simulator",
+                album: "TSLAgarage"
+              });
+              msRegistered = true;
+            }
+            navigator.mediaSession.playbackState = S.running ? "playing" : "paused";
+          } else {
+            navigator.mediaSession.metadata = null;
+            navigator.mediaSession.playbackState = "none";
+            msRegistered = false;
+          }
+        } catch (e) {}
+      }
+      if (bgAudioBtn) bgAudioBtn.addEventListener("click", function () {
+        bgAudio = !bgAudio;
+        bgAudioBtn.setAttribute("aria-pressed", bgAudio ? "true" : "false");
+        syncMediaSession();
+        if (!AC) return;
+        if (bgAudio) {
+          if (S.running && AC.state === "suspended") AC.resume();
+        } else {
+          stopHiddenTimer();
+          if (document.hidden && S.running && AC.state === "running") AC.suspend();
+        }
+      });
+      syncMediaSession();
+
+      var hiddenTimer = null, hiddenLastT = 0;
+      function audioNow() { return AC ? AC.currentTime : performance.now() / 1000; }
+      function hiddenTick() {
+        if (!document.hidden) { stopHiddenTimer(); return; }
+        var nowT = audioNow();
+        var dt = clamp(nowT - hiddenLastT, 0, 1.0);
+        hiddenLastT = nowT;
+        if (dt > 0) { step(dt); render(); if (S.running) setStatusLight(); }
+      }
+      function startHiddenTimer() {
+        if (hiddenTimer !== null) return;
+        hiddenLastT = audioNow();
+        hiddenTimer = setInterval(hiddenTick, 50);
+      }
+      function stopHiddenTimer() {
+        if (hiddenTimer !== null) { clearInterval(hiddenTimer); hiddenTimer = null; }
+      }
+      document.addEventListener("visibilitychange", function () {
+        if (document.hidden) {
+          if (bgAudio) {
+            if (AC && AC.state === "suspended") AC.resume();
+            startHiddenTimer();
+          } else if (AC && S.running && AC.state === "running") {
+            AC.suspend();
+          }
+        } else {
+          stopHiddenTimer();
+          if (AC && S.running && AC.state === "suspended") AC.resume();
+        }
+      });
+      window.addEventListener("pagehide", function () {
+        /* Background audio ON means exactly this: do not suspend on
+           the way out — leave the context running for the tab. */
+        if (bgAudio && AC && AC.state === "suspended") { try { AC.resume(); } catch (e) {} }
+      });
+
+      /* ================= Scenes =================
+         Original CSS/SVG backdrops behind the dashboard. Each scene
+         is a sky gradient plus two silhouette layers (inline SVG
+         tiles, repeat-x) that step() and render() scroll at rates
+         proportional to road speed. Session-only; default off. */
+      var sceneLayer = $("#sceneLayer"), sceneFarEl = $("#sceneFar"),
+          sceneNearEl = $("#sceneNear"), sceneStarsEl = $("#sceneStars"),
+          sceneStreaksEl = $("#sceneStreaks");
+      var sceneName = null;
+      function pinePath(w, h, groundY, minH, maxH, seed) {
+        var d = "M0," + h + " L0," + groundY, x = -12, s = seed;
+        function rnd() { s = (s * 16807) % 2147483647; return s / 2147483647; }
+        while (x < w + 24) {
+          var tw = 30 + rnd() * 24, th = minH + rnd() * (maxH - minH), cx = x + tw / 2;
+          d += " L" + cx.toFixed(0) + "," + (groundY - th).toFixed(0) + " L" + (x + tw).toFixed(0) + "," + groundY;
+          x += tw * (0.5 + rnd() * 0.35);
+        }
+        return d + " L" + w + "," + groundY + " L" + w + "," + h + " Z";
+      }
+      var SCENES = {
+        desert: { sky: "linear-gradient(180deg, #f6b26b 0%, #e2703a 55%, #8f3b1d 100%)",
+          far: "#a34d28", near: "#5f2a16", stars: 0,
+          farPath: "M0,200 L0,128 L70,128 L88,84 L238,84 L256,128 L398,128 L416,100 L540,100 L556,134 L600,134 L600,200 Z",
+          nearPath: "M0,160 L0,112 Q140,74 300,102 Q450,126 600,96 L600,160 Z" },
+        city: { sky: "linear-gradient(180deg, #0b1026 0%, #1b2a52 60%, #3a3f6b 100%)",
+          far: "#26305a", near: "#11172e", stars: 0.9,
+          farPath: "M0,200 L0,90 L40,90 L40,60 L80,60 L80,110 L120,110 L120,40 L165,40 L165,95 L210,95 L210,70 L250,70 L250,120 L300,120 L300,55 L345,55 L345,100 L390,100 L390,75 L430,75 L430,115 L480,115 L480,50 L525,50 L525,90 L565,90 L565,105 L600,105 L600,200 Z",
+          nearPath: "M0,160 L0,70 L55,70 L55,30 L105,30 L105,95 L150,95 L150,55 L205,55 L205,110 L255,110 L255,20 L310,20 L310,80 L360,80 L360,45 L410,45 L410,100 L465,100 L465,60 L520,60 L520,90 L600,90 L600,160 Z" },
+        coast: { sky: "linear-gradient(180deg, #8ec9e8 0%, #cfeef5 55%, #fdf3d8 100%)",
+          far: "#3e7d8c", near: "#1f4d57", stars: 0,
+          farPath: "M0,200 L0,138 Q110,88 250,116 Q380,142 470,104 Q540,76 600,98 L600,200 Z",
+          nearPath: "M0,160 L0,118 Q170,88 340,110 Q480,128 600,100 L600,160 Z" },
+        forest: { sky: "linear-gradient(180deg, #b9cfae 0%, #7fae7a 60%, #4c7a52 100%)",
+          far: "#33523a", near: "#1d3323", stars: 0,
+          farPath: pinePath(600, 200, 168, 55, 105, 1237),
+          nearPath: pinePath(600, 160, 138, 70, 125, 7919) },
+        neon: { sky: "linear-gradient(180deg, #070313 0%, #160a33 55%, #2b0f45 100%)",
+          far: "#1b1038", near: "#0a0618", stars: 0.7, neon: true,
+          farPath: "M0,200 L0,90 L40,90 L40,60 L80,60 L80,110 L120,110 L120,40 L165,40 L165,95 L210,95 L210,70 L250,70 L250,120 L300,120 L300,55 L345,55 L345,100 L390,100 L390,75 L430,75 L430,115 L480,115 L480,50 L525,50 L525,90 L565,90 L565,105 L600,105 L600,200 Z",
+          /* Glowing sign bars riding on the skyline rooftops, drawn
+             into the same tile so they parallax with the buildings. */
+          farExtra: "<rect x='126' y='46' width='30' height='5' fill='#ff2d95'/>" +
+            "<rect x='126' y='46' width='5' height='34' fill='#ff2d95' opacity='0.85'/>" +
+            "<rect x='304' y='61' width='36' height='5' fill='#00e5ff'/>" +
+            "<rect x='484' y='56' width='28' height='5' fill='#b026ff'/>" +
+            "<rect x='44' y='66' width='22' height='4' fill='#00e5ff' opacity='0.9'/>" +
+            "<rect x='394' y='81' width='24' height='4' fill='#ff2d95' opacity='0.9'/>" +
+            "<rect x='214' y='76' width='26' height='4' fill='#ffe95e' opacity='0.85'/>",
+          nearPath: "M0,160 L0,70 L55,70 L55,30 L105,30 L105,95 L150,95 L150,55 L205,55 L205,110 L255,110 L255,20 L310,20 L310,80 L360,80 L360,45 L410,45 L410,100 L465,100 L465,60 L520,60 L520,90 L600,90 L600,160 Z",
+          nearExtra: "<rect x='262' y='26' width='40' height='5' fill='#00e5ff' opacity='0.8'/>" +
+            "<rect x='58' y='36' width='24' height='4' fill='#ff2d95' opacity='0.8'/>" +
+            "<rect x='468' y='66' width='30' height='4' fill='#b026ff' opacity='0.75'/>" },
+        plaid: { sky: "linear-gradient(180deg, #05060f 0%, #141033 55%, #2a1150 100%)",
+          far: "#241a4d", near: "#120b2a", stars: 1, plaid: true, streaks: true,
+          farPath: "M0,200 L0,150 Q160,110 320,140 Q470,168 600,128 L600,200 Z",
+          nearPath: "M0,160 L0,124 Q200,92 400,118 Q520,132 600,110 L600,160 Z" }
+      };
+      function sceneSvgURI(color, path, w, h, extra) {
+        var svg = "<svg xmlns='http://www.w3.org/2000/svg' width='" + w + "' height='" + h +
+          "' viewBox='0 0 " + w + " " + h + "' preserveAspectRatio='none'><path d='" + path +
+          "' fill='" + color + "'/>" + (extra || "") + "</svg>";
+        return "url(\"data:image/svg+xml," + encodeURIComponent(svg) + "\")";
+      }
+      /* Plaid light-streak tile: short rounded dashes scattered down
+         the band. render() stretches the whole layer with scaleX as
+         speed rises, so the dashes elongate into warp streaks. */
+      var STREAK_SVG = "<svg xmlns='http://www.w3.org/2000/svg' width='600' height='200' viewBox='0 0 600 200'>" +
+        "<rect x='20' y='30' width='70' height='3' rx='1.5' fill='#ffffff' opacity='0.85'/>" +
+        "<rect x='180' y='70' width='46' height='2.5' rx='1.25' fill='#9fd8ff' opacity='0.7'/>" +
+        "<rect x='330' y='45' width='90' height='3' rx='1.5' fill='#ffffff' opacity='0.6'/>" +
+        "<rect x='470' y='95' width='55' height='2.5' rx='1.25' fill='#ffc4ec' opacity='0.7'/>" +
+        "<rect x='90' y='120' width='80' height='3' rx='1.5' fill='#ffffff' opacity='0.55'/>" +
+        "<rect x='260' y='150' width='60' height='2.5' rx='1.25' fill='#9fd8ff' opacity='0.6'/>" +
+        "<rect x='430' y='140' width='100' height='3' rx='1.5' fill='#ffffff' opacity='0.75'/>" +
+        "<rect x='540' y='20' width='40' height='2.5' rx='1.25' fill='#ffffff' opacity='0.6'/></svg>";
+      function setScene(key) {
+        sceneName = key && SCENES[key] ? key : null;
+        var opts = document.querySelectorAll("#sceneList .scene-opt");
+        for (var i = 0; i < opts.length; i++) {
+          var on = (opts[i].dataset.scene === "off" && !sceneName) || opts[i].dataset.scene === sceneName;
+          opts[i].setAttribute("aria-pressed", on ? "true" : "false");
+        }
+        if (!sceneName) { sceneLayer.hidden = true; sceneStreaksEl.style.opacity = 0; return; }
+        var sc = SCENES[sceneName];
+        sceneLayer.style.background = sc.sky;
+        sceneLayer.classList.toggle("plaid", !!sc.plaid);
+        sceneLayer.classList.toggle("neon", !!sc.neon);
+        sceneFarEl.style.backgroundImage = sceneSvgURI(sc.far, sc.farPath, 600, 200, sc.farExtra);
+        sceneNearEl.style.backgroundImage = sceneSvgURI(sc.near, sc.nearPath, 600, 160, sc.nearExtra);
+        sceneStarsEl.style.opacity = sc.stars || 0;
+        if (sc.streaks) sceneStreaksEl.style.backgroundImage = "url(\"data:image/svg+xml," + encodeURIComponent(STREAK_SVG) + "\")";
+        else { sceneStreaksEl.style.opacity = 0; sceneStreaksEl.style.backgroundImage = "none"; }
+        sceneLayer.hidden = false;
+      }
+      var sceneBtn = $("#sceneBtn"), scenePanel = $("#scenePanel");
+      function setSceneOpen(open) {
+        scenePanel.hidden = !open;
+        sceneBtn.setAttribute("aria-expanded", open ? "true" : "false");
+        if (open) { setSettingsOpen(false); placePanel(scenePanel, sceneBtn, false); }
+      }
+      sceneBtn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        setSceneOpen(scenePanel.hidden);
+      });
+      document.querySelectorAll("#sceneList .scene-opt").forEach(function (b) {
+        b.addEventListener("click", function () { setScene(b.dataset.scene); });
+      });
+      document.addEventListener("click", function (e) {
+        if (!scenePanel.hidden && !(e.target instanceof Element && e.target.closest(".scenes"))) setSceneOpen(false);
+      });
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && !scenePanel.hidden) { setSceneOpen(false); sceneBtn.focus(); }
+      });
+      window.addEventListener("resize", function () {
+        if (!settingsPanel.hidden) placePanel(settingsPanel, settingsBtn, true);
+        if (!scenePanel.hidden) placePanel(scenePanel, sceneBtn, false);
+      });
+
       /* ================= Main loop ================= */
       var lastT = performance.now();
       function frame(now) {
         var dt = Math.min(0.05, (now - lastT) / 1000);
         lastT = now;
-        step(dt);
-        render();
-        if (S.running) setStatusLight();
+        /* While hidden with background audio on, the fallback timer
+           (audio-clock based) drives the sim instead — rAF is
+           stopped or throttled there, and stepping twice would
+           double-advance the physics. */
+        if (!(document.hidden && bgAudio)) {
+          step(dt);
+          render();
+          if (S.running) setStatusLight();
+        }
         requestAnimationFrame(frame);
       }
       var statusTick = 0;
