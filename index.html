@@ -1656,7 +1656,12 @@
            smoothstep, so the needle never jumps — especially braking. --- */
         var limiter = E.limiter || E.redline * 1.03;
         var breathe = E.idle > 0 ? E.idle + 18 * Math.sin(S.time * 4.1) + 10 * Math.sin(S.time * 9.7) + (E.lope || 0) * 16 * Math.sin(S.time * 2.3 + 1.7) : 0;
-        var stationary = S.speed < 2 && S.mode !== "gps";
+        /* Stationary means under 2 km/h in every mode. GPS used to be
+           excluded outright, which also blocked the free-rev below while
+           parked — a held REV could raise the load but never the needle.
+           In GPS the speed term still gates it: at or above 2 km/h this
+           is false and rpm stays purely speed-derived, REV or not. */
+        var stationary = S.speed < 2;
         if (S.cranking > 0) {
           S.rpm += (targetRpm - S.rpm) * (1 - Math.exp(-dt / 0.05));
           S.limitCut = false;
