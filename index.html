@@ -511,7 +511,7 @@
               <div class="ctl-label" style="margin-top:16px;">Sound</div>
               <button class="toggle bg-toggle" id="bgAudioBtn" aria-pressed="true"><span class="pip"></span>Play sound in the background</button>
               <p class="settings-note">Turn off to play your own music alongside: sounds then only play while the browser is open.</p>
-              <p class="settings-note">Build: <span id="buildStamp">build 2026-10-23 10:06 PDT</span></p>
+              <p class="settings-note">Build: <span id="buildStamp">build 2026-10-23 12:25 PDT</span></p>
             </div>
           </div>
           <div class="scenes">
@@ -734,7 +734,7 @@
       <footer>
         <span>Location is used only to measure speed in GPS mode and never leaves your browser.</span>
         <span>Expect a beat of lag in GPS mode - phone GPS refreshes about once a second.</span>
-        <span>build 2026-10-23 10:06 PDT</span>
+        <span>build 2026-10-23 12:25 PDT</span>
       </footer>
     </div>
 
@@ -1054,17 +1054,6 @@
         }
         return curve;
       }
-      /* Schroeder allpass for the Freeverb room: y = -g*x + x_d + g*y_d,
-         built from a delay line with feedback around it. */
-      function schroederAllpass(delaySec, g) {
-        var input = AC.createGain(), output = AC.createGain(), sum = AC.createGain();
-        var dly = AC.createDelay(0.05); dly.delayTime.value = delaySec;
-        var fb = AC.createGain(); fb.gain.value = g;
-        var neg = AC.createGain(); neg.gain.value = -g;
-        input.connect(sum); dly.connect(fb); fb.connect(sum); sum.connect(dly);
-        dly.connect(output); input.connect(neg); neg.connect(output);
-        return { input: input, output: output };
-      }
       function buildAudio() {
         if (navigator.audioSession) { try { navigator.audioSession.type = "playback"; } catch (e) {} }
         AC = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: "interactive" });
@@ -1175,64 +1164,28 @@
         evWhine.connect(evWhineG); evWhineG.connect(engBus);
 
         /* --- Hearse soundscape: dry + heavy generated reverb ---
-           teslasound's space is a Freeverb-style room: the reflections
-           are DAMPED (highs die fast, the tail is dark) and the tail
-           is comparatively short, so the seven layers stay separate
-           events in a crypt instead of washing into one bright haze.
-           Ours used a full-bandwidth noise impulse at 2.8 s, which
-           smeared everything - now a 2.4 s impulse with the wet
-           return low-passed at 3.2 kHz for that damped-room tone. */
+           A generated-impulse convolver: a 2.4 s stereo noise
+           impulse (decay 2.2) with the wet return low-passed at
+           3.2 kHz, so the reflections are damped (highs die fast,
+           the tail is dark) and the seven layers stay separate
+           events in a crypt instead of washing into one bright
+           haze. Wet level is the engine's reverbLvl (0.5), set in
+           applyEngineAudio. */
         var scape = AC.createGain(); scape.connect(engBus);
-        /* Stereo Schroeder/Freeverb room (teslasound's space): per
-           side, 4 damped feedback combs in parallel into 2 series
-           allpasses, ~2 s tail. Wet level is set per engine in
-           applyEngineAudio: reverbLvl x scare factor. */
         var verbIn = AC.createGain(); verbIn.gain.value = 1;
         scape.connect(verbIn);
-        var wet = AC.createGain(); wet.gain.value = 0.37;
+        var verb = AC.createConvolver(); verb.buffer = makeImpulse(2.4, 2.2);
+        var verbLp = AC.createBiquadFilter(); verbLp.type = "lowpass"; verbLp.frequency.value = 3200;
+        var wet = AC.createGain(); wet.gain.value = 0.5;
+        verbIn.connect(verb); verb.connect(verbLp); verbLp.connect(wet);
         wet.connect(engBus);
-        (function buildVerb() {
-          var combMs = [29.7, 31.1, 32.3, 33.9], allMs = [0.0051, 0.0126];
-          var split = AC.createChannelSplitter(2); verbIn.connect(split);
-          var merger = AC.createChannelMerger(2); merger.connect(wet);
-          for (var side = 0; side < 2; side++) {
-            var sideIn = AC.createGain(); sideIn.gain.value = 1;
-            if (AC.createChannelSplitter) split.connect(sideIn, side); else verbIn.connect(sideIn);
-            var combSum = AC.createGain(); combSum.gain.value = 0.25;
-            for (var ci = 0; ci < combMs.length; ci++) {
-              var dly = AC.createDelay(0.1); dly.delayTime.value = (combMs[ci] + side * 0.6) / 1000;
-              var damp = AC.createBiquadFilter(); damp.type = "lowpass"; damp.frequency.value = 2400;
-              var fb = AC.createGain(); fb.gain.value = 0.85 - ci * 0.015;
-              sideIn.connect(dly); dly.connect(damp); damp.connect(fb); fb.connect(dly);
-              dly.connect(combSum);
-            }
-            var chain = combSum;
-            for (var ai = 0; ai < allMs.length; ai++) {
-              var ap = schroederAllpass(allMs[ai], 0.5);
-              chain.connect(ap.input); chain = ap.output;
-            }
-            var sideGain = AC.createGain(); sideGain.gain.value = 0.9;
-            chain.connect(sideGain); sideGain.connect(merger, 0, side);
-          }
-        })();
         var choirGain = AC.createGain(); choirGain.gain.value = 0;
-        var choirLp = AC.createBiquadFilter(); choirLp.type = "lowpass"; choirLp.frequency.value = 4200;
+        /* The choir's vowel character comes from this lowpass: it
+           sweeps open with load in updateAudio (closed "oo" at
+           rest toward an open "ah" under way). */
+        var choirLp = AC.createBiquadFilter(); choirLp.type = "lowpass"; choirLp.frequency.value = 1100;
         var choirOut = AC.createGain(); choirOut.gain.value = 1;
         choirGain.connect(choirLp); choirLp.connect(choirOut); choirOut.connect(scape);
-        /* Vowel formants: three bandpasses morphing "oo" to "ah" as
-           load rises (frequencies/gains swept in updateAudio), plus
-           a 0.3x white-noise breath mixed with the voices. */
-        var choirFormants = [];
-        [[320, 5, 1], [800, 8, 0.5], [2500, 12, 0.2]].forEach(function (fm) {
-          var bp = AC.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = fm[0]; bp.Q.value = fm[1];
-          var fg = AC.createGain(); fg.gain.value = fm[2] * 2.2;
-          choirGain.connect(bp); bp.connect(fg); fg.connect(choirOut);
-          choirFormants.push({ bp: bp, fg: fg, oo: fm });
-        });
-        var choirBreath = AC.createBufferSource(); choirBreath.buffer = nbuf; choirBreath.loop = true; choirBreath.playbackRate.value = 0.5;
-        var choirBreathGain = AC.createGain(); choirBreathGain.gain.value = 0;
-        choirBreath.connect(choirBreathGain); choirBreathGain.connect(choirOut);
-        choirBreath.start();
         /* teslasound's choir chord on rootHz: [ratio, pace where the
            voice fades in, pan] - a low drone, then a minor chord with a
            tritone, climbing an octave. The chord itself never moves;
@@ -1255,18 +1208,11 @@
           choirVoices.push({ g: vg, at: cv[1], oscs: oscs });
         });
         var wind = AC.createBufferSource(); wind.buffer = nbuf; wind.loop = true; wind.playbackRate.value = 0.45;
-        var windBpL = AC.createBiquadFilter(); windBpL.type = "bandpass"; windBpL.frequency.value = 400; windBpL.Q.value = 4;
-        var windBpR = AC.createBiquadFilter(); windBpR.type = "bandpass"; windBpR.frequency.value = 430; windBpR.Q.value = 4;
+        /* One mono bandpass; its center wanders 330->780 Hz with
+           the gust cycle in updateAudio. */
+        var windBp = AC.createBiquadFilter(); windBp.type = "bandpass"; windBp.frequency.value = 480; windBp.Q.value = 4;
         var windGain = AC.createGain(); windGain.gain.value = 0;
-        if (AC.createChannelMerger) {
-          var windGL = AC.createGain(); windGL.gain.value = 1;
-          var windGR = AC.createGain(); windGR.gain.value = 1;
-          var windMerger = AC.createChannelMerger(2);
-          wind.connect(windBpL); wind.connect(windBpR);
-          windBpL.connect(windGL); windGL.connect(windMerger, 0, 0);
-          windBpR.connect(windGR); windGR.connect(windMerger, 0, 1);
-          windMerger.connect(windGain);
-        } else { wind.connect(windBpL); windBpL.connect(windGain); }
+        wind.connect(windBp); windBp.connect(windGain);
         windGain.connect(scape);
         /* Growl: teslasound's monster throat - "a low, rough 'aaah'
            from a monster's throat", NOT a motor. Their source is
@@ -1314,7 +1260,7 @@
                   blowerGain: blowerGain, blowerOscs: blowerOscs,
                   evLp: evLp, ev1: ev1, ev2: ev2, evSub: evSub, evWhine: evWhine,
                   ev1G: ev1G, ev2G: ev2G, evSubG: evSubG, evWhineG: evWhineG,
-                  scape: scape, choirGain: choirGain, choirLp: choirLp, choirVoices: choirVoices, choirFormants: choirFormants, choirBreathGain: choirBreathGain, windBp: windBpL, windBps: [windBpL, windBpR], windGain: windGain, verbIn: verbIn, wet: wet, flutterOsc: flutterOsc,
+                  scape: scape, choirGain: choirGain, choirLp: choirLp, choirVoices: choirVoices, windBp: windBp, windGain: windGain, verbIn: verbIn, wet: wet, flutterOsc: flutterOsc,
                   growl: growl, growlGain: growlGain, nbuf: nbuf };
         applyEngineAudio();
         initWorklet();
@@ -1443,7 +1389,7 @@
           nodes.comp.ratio.value = profComp ? profComp.ratio : (scapeComp ? 3 : 5);
           nodes.comp.release.value = profComp && profComp.release ? profComp.release : 0.2;
         }
-        if (nodes.wet) nodes.wet.gain.value = E.kind === "scape" ? (E.reverbLvl || 0.5) * (0.5 + 0.67 * (E.char || 0)) : 0.5;
+        if (nodes.wet) nodes.wet.gain.value = E.kind === "scape" ? (E.reverbLvl || 0.5) : 0.5;
         nodes.outGain.gain.value = E.gain || 0.6;
         nodes.intakeBp.frequency.value = E.intakeHz || 700;
         SCH.active = false;
@@ -1515,8 +1461,7 @@
         g.gain.setValueAtTime(0, t);
         g.gain.linearRampToValueAtTime(amp, t + 0.005);
         g.gain.exponentialRampToValueAtTime(0.001, t + 0.26);
-        var tclip = AC.createWaveShaper(); tclip.curve = makeTanhCurve(1.6); tclip.oversample = "2x";
-        o.connect(g); g.connect(tclip); tclip.connect(nodes.scape);
+        o.connect(g); g.connect(nodes.scape);
         o.start(t); o.stop(t + 0.3);
       }
       /* Moan: two detuned saws gliding DOWN an octave from 2x rootHz
@@ -1532,30 +1477,12 @@
           g.connect(pn); dest = pn;
         }
         dest.connect(nodes.scape);
-        /* Strongest reverb send of any layer (0.9): a second feed
-           from the moan straight into the verb input. */
-        if (nodes.verbIn) { var mw = AC.createGain(); mw.gain.value = 0.9; dest.connect(mw); mw.connect(nodes.verbIn); }
-        /* Vowel formants: "oh" closing to "oo" across the moan. */
-        var moanBus = AC.createGain(); moanBus.gain.value = 1; moanBus.connect(g);
-        var mForms = [];
-        [[570, 6, 1], [840, 8, 0.55], [2410, 12, 0.22]].forEach(function (fm) {
-          var bp = AC.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.setValueAtTime(fm[0], t); bp.Q.value = fm[1];
-          bp.frequency.linearRampToValueAtTime([320, 800, 2500][mForms.length], t + 2.6);
-          var fg = AC.createGain(); fg.gain.value = fm[2] * 2.2;
-          bp.connect(fg); fg.connect(moanBus);
-          mForms.push(bp);
-        });
-        var wob = AC.createOscillator(); wob.type = "sine"; wob.frequency.value = 5.3;
-        var wobG = AC.createGain(); wobG.gain.value = root * 0.012;
-        wob.connect(wobG); wob.start(t); wob.stop(t + 2.7);
         [1, 1.004].forEach(function (det, i) {
           var o = AC.createOscillator(); o.type = "sawtooth";
           o.frequency.setValueAtTime(root * 2 * det, t);
           o.frequency.exponentialRampToValueAtTime(root * det, t + 1.8);
           var og = AC.createGain(); og.gain.value = i ? 0.35 : 0.5;
-          o.connect(og);
-          mForms.forEach(function (bp) { og.connect(bp); });
-          wobG.connect(o.frequency);
+          o.connect(og); og.connect(g);
           o.start(t); o.stop(t + 2.7);
         });
         var peak = (E.moanLvl || 0.25) * 0.9;
@@ -1571,15 +1498,13 @@
         var E = S.engine, t = AC.currentTime + 0.03, root = E.rootHz || 146.83;
         var BELL = [[1, 0.5, 5.5], [2, 0.55, 3.8], [2.4, 0.45, 3.2], [3, 0.22, 2.2], [4, 0.4, 2.6], [5, 0.18, 1.6], [5.32, 0.14, 1.3], [6, 0.1, 1.1], [8.14, 0.07, 0.8], [10.9, 0.05, 0.5], [13.6, 0.035, 0.35]];
         var strike = (E.bellLvl || 0.2) * (0.9 + 0.2 * Math.random()) * 1.7;
-        var bellLp = AC.createBiquadFilter(); bellLp.type = "lowpass"; bellLp.frequency.value = 4500;
-        bellLp.connect(nodes.scape);
         BELL.forEach(function (p) {
           var o = AC.createOscillator(); o.type = "sine"; o.frequency.value = root * p[0];
           var g = AC.createGain();
           g.gain.setValueAtTime(0, t);
           g.gain.linearRampToValueAtTime(strike * p[1], t + 0.005);
           g.gain.exponentialRampToValueAtTime(0.0008, t + p[2]);
-          o.connect(g); g.connect(bellLp);
+          o.connect(g); g.connect(nodes.scape);
           o.start(t); o.stop(t + p[2] + 0.1);
         });
         var n = AC.createBufferSource(); n.buffer = nodes.nbuf;
@@ -1588,7 +1513,7 @@
         ng.gain.setValueAtTime(0, t);
         ng.gain.linearRampToValueAtTime(strike * 0.5, t + 0.003);
         ng.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
-        n.connect(nf); nf.connect(ng); ng.connect(bellLp);
+        n.connect(nf); nf.connect(ng); ng.connect(nodes.scape);
         n.start(t, Math.random()); n.stop(t + 0.08);
       }
       /* Scream: teslasound's shriek, one per REV press (edge trigger
@@ -1789,10 +1714,10 @@
           S.hbPhase += dt * S.bpmCur / 60;
           if (S.hbPhase >= 1) {
             S.hbPhase -= 1; S.hbDub = false;
-            thump(AC.currentTime + 0.02, heartLvl * 1.0, 46);
+            thump(AC.currentTime + 0.02, heartLvl * 0.9, 46);
           } else if (!S.hbDub && S.hbPhase >= 0.3) {
             S.hbDub = true;
-            thump(AC.currentTime + 0.02, heartLvl * 0.7, 58);
+            thump(AC.currentTime + 0.02, heartLvl * 0.63, 58);
           }
         }
         /* Moan: after >1 s on the load and 0.5 s off it, above
@@ -2291,14 +2216,7 @@
              and the vowel opens with load (LP sweep for OO->AH). */
           var choirLvlNow = running ? (E.choirLvl || 0.3) * movingS * (0.35 + 0.65 * loadS) : 0;
           nodes.choirGain.gain.setTargetAtTime(choirLvlNow, t, 0.25);
-          if (nodes.choirBreathGain) nodes.choirBreathGain.gain.setTargetAtTime(choirLvlNow * 0.3, t, 0.25);
-          if (nodes.choirFormants) {
-            var AHV = [[700, 5, 1], [1150, 8, 0.6], [2600, 12, 0.25]];
-            nodes.choirFormants.forEach(function (cfm, cfi) {
-              cfm.bp.frequency.setTargetAtTime(cfm.oo[0] + (AHV[cfi][0] - cfm.oo[0]) * loadS, t, 0.2);
-              cfm.fg.gain.setTargetAtTime((cfm.oo[2] + (AHV[cfi][2] - cfm.oo[2]) * loadS) * 2.2, t, 0.2);
-            });
-          }
+          if (nodes.choirLp) nodes.choirLp.frequency.setTargetAtTime(1100 + 3100 * loadS, t, 0.25);
           nodes.choirVoices.forEach(function (cv, ci) {
             var on = cv.at ? sstep01((paceS - cv.at) / 0.1) : 1;
             cv.g.gain.setTargetAtTime(running ? on : 0, t, 0.15);
@@ -2306,14 +2224,12 @@
               oo.osc.frequency.setTargetAtTime(oo.base * (1 + 0.004 * Math.sin(6.2832 * 4.6 * S.time + ci * 1.7)), t, 0.1);
             });
           });
-          /* Wind: slow gusts over a band that climbs 330->780 Hz with pace. */
-          var gust = 0.55 + 0.45 * Math.sin(6.2832 * 0.07 * S.time);
+          /* Wind: slow gusts (0.13 Hz cycle); the single bandpass
+             band sweeps 330->780 Hz in step with the same cycle. */
+          var gustPh = 0.5 + 0.5 * Math.sin(6.2832 * 0.13 * S.time);
+          var gust = 0.55 + 0.45 * Math.sin(6.2832 * 0.13 * S.time);
           nodes.windGain.gain.setTargetAtTime(running ? (E.windLvl || 0.25) * gust * (0.35 + 0.65 * clamp(speedMSS / 30, 0, 1)) : 0, t, tc);
-          if (nodes.windBps) {
-            var wfc = 330 + 450 * paceS;
-            nodes.windBps[0].frequency.setTargetAtTime(wfc * Math.pow(2, 0.9 * Math.sin(6.2832 * 0.043 * S.time)), t, tc);
-            nodes.windBps[1].frequency.setTargetAtTime(wfc * Math.pow(2, 0.9 * Math.sin(6.2832 * 0.11 * S.time + 1.3)), t, tc);
-          }
+          if (nodes.windBp) nodes.windBp.frequency.setTargetAtTime(330 + 450 * gustPh, t, tc);
           /* Growl: fades in from 55% load, full at 90% (teslasound's
              tGrowl law); pitch follows pace (55->95 Hz). The throat
              flutter and monster-vowel formants live in the growl
@@ -2322,7 +2238,7 @@
              nothing motor-like rides on the gas any more. */
           var gAmt = sstep01((loadS - 0.55) / 0.35);
           nodes.growl.frequency.setTargetAtTime(55 + 40 * paceS, t, tc);
-          nodes.growlGain.gain.setTargetAtTime(running ? (E.growlLvl || 0.45) * gAmt * (0.5 + 0.67 * (E.char || 0)) : 0, t, 0.03);
+          nodes.growlGain.gain.setTargetAtTime(running ? (E.growlLvl || 0.45) * gAmt : 0, t, 0.03);
           if (nodes.flutterOsc) {
             var flBk = Math.floor(S.time);
             if (nodes._flBk !== flBk) { nodes._flBk = flBk; nodes.flutterOsc.frequency.setTargetAtTime(25 + Math.random() * 4, t, 0.1); }
