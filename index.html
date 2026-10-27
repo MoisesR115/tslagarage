@@ -511,7 +511,7 @@
               <div class="ctl-label" style="margin-top:16px;">Sound</div>
               <button class="toggle bg-toggle" id="bgAudioBtn" aria-pressed="true"><span class="pip"></span>Play sound in the background</button>
               <p class="settings-note">Turn off to play your own music alongside: sounds then only play while the browser is open.</p>
-              <p class="settings-note">Build: <span id="buildStamp">build 2026-10-26 22:48 PDT</span></p>
+              <p class="settings-note">Build: <span id="buildStamp">build 2026-10-26 22:55 PDT</span></p>
             </div>
           </div>
           <div class="scenes">
@@ -734,7 +734,7 @@
       <footer>
         <span>Location is used only to measure speed in GPS mode and never leaves your browser.</span>
         <span>Expect a beat of lag in GPS mode - phone GPS refreshes about once a second.</span>
-        <span>build 2026-10-26 22:48 PDT</span>
+        <span>build 2026-10-26 22:55 PDT</span>
       </footer>
     </div>
 
@@ -845,11 +845,11 @@
           firing: [[0,0],[120,1],[240,0],[360,1],[480,0],[600,1]],
           banks: [{ pipeMs: 5.2, pan: -0.08, tune: 1.0 }, { pipeMs: 5.4, pan: 0.08, tune: 1.01 }],
           pipeReflection: -0.18, pipeDamping: 0.55,
-          formants: [[58,1.3,1.15],[125,1.1,0.95],[245,1.2,0.9],[430,1.2,0.7],[900,1.3,0.28],[1800,1.5,0.08]], formantDry: 0.36,
-          pulseMsIdle: 6.0, pulseMsRedline: 1.7, noise: 0.22, jitter: 0.02, trim: 0.03, lope: 0.015,
-          mufflerLo: 700, mufflerHi: 2800, bodyHz: 55, bodyDb: 7, intake: 0.07, intakeHz: 600,
-          whine: 0, whineRatio: 0, crackle: 0.04, popGain: 0.06, burble: 0.12, drive: 1.25, gain: 0.55, shiftTime: 0.65,
-          revRiseBase: 500, revRiseGain: 1500, revFallMin: 500, revFallRate: 0.35, flareRpm: 420,
+          formants: [[58,1.3,1.05],[125,1.1,0.8],[245,1.2,0.85],[430,1.2,1.1],[900,1.3,0.6],[1800,1.5,0.15]], formantDry: 0.3,
+          pulseMsIdle: 13.0, pulseMsRedline: 1.7, noise: 0.9, jitter: 0.02, trim: 0.03, lope: 0.015,
+          mufflerLo: 650, mufflerHi: 2200, bodyHz: 55, bodyDb: 3, intake: 0.07, intakeHz: 600,
+          whine: 0, whineRatio: 0, crackle: 0.04, popGain: 0.06, burble: 0.12, drive: 1.0, gain: 0.55, shiftTime: 0.65,
+          revRiseBase: 350, revRiseGain: 900, revFallMin: 500, revFallRate: 0.35, flareRpm: 420,
           /* Researched build (Oct 26, 2026): the truck in Moises's
              photos is a GM de Mexico C-10 Custom, 1979-80 styling -
              250 I6 (car tune 100 hp / 175 lb-ft; truck LE3 tune
@@ -902,9 +902,36 @@
              reflections down to -0.18 with damping up, pulses
              back to 6 ms, drive 1.25, the gentlest compressor in
              the garage (-6 / 2:1), muffler hi 2,800 and a touch
-             of the 245/430 formants back for chest. */
-          hannPulse: true, hannScale: 4.6,
-          driveOS: 4, dcHz: 34, noiseTame: 0.7, airDb: 0, airHz: 3000,
+             of the 245/430 formants back for chest.
+             V5 (Oct 26, his verdict on v4: "still a sports car,
+             still muffled - why doesn't it sound like the video?"):
+             fair challenge - v2-v4 were tuned blind. So this one
+             was tuned in a lab: the actual worklet was pulled out
+             of this page, run offline in Node, rendered, and
+             measured with the same pulse analysis used on his
+             video (harness kept in ~/workspace/simlab-harness).
+             Diagnosis: the earlier voices had a strong 3rd
+             harmonic (-1.5 dB vs the reference's -5.1) from short
+             pulses - a rich harmonic stack is what reads as a
+             sports-car note - and a sub-heavy balance. The fix
+             that moved the numbers: LONG 13 ms pulses concentrate
+             the spectrum on the fundamental. Rendered idle now
+             measures: rate 35.4 Hz (ref 35.1), pulse peaks 72 Hz
+             0 dB / 36 -2.3 / 107 -5.4 / 143 -18 (ref 0 / -3.3 /
+             -5.1 / -11.7). Also: noise 0.9 (the reference's
+             midrange content rides the per-pulse noise burst
+             through the 430 formant), bodyDb 3, muffler capped
+             at 2,200 so a floored REV cannot open into
+             brightness, air 2 dB back, and the free-rev rise
+             slowed again (1,250 rpm/s floored). Known remaining
+             gap, stated honestly: the reference carries a
+             continuous low bed of exhaust/mechanical sustain
+             between pulses (its whole-window 80-250 Hz share is
+             0.18 vs the render's 0.09); this synth family
+             deliberately has no continuous bed, so the render
+             sits quieter between thumps. */
+          hannPulse: true, hannScale: 4.3,
+          driveOS: 4, dcHz: 34, noiseTame: 0.7, airDb: 2.0, airHz: 3000,
           comp: { threshold: -6, knee: 14, ratio: 2.0, release: 0.3 },
           ratios: [2.85,1.68,1.0], finalDrive: 3.07, tireCirc: 2.3, char: 0.22 },
         { key: "hearse", name: "Haunted Hearse", tag: "Soundscape", desc: "No engine sound at all - teslasound's full haunted soundscape over an old 3-speed V8 drivetrain. A heartbeat at rest that races as you press on, wind, a ghost choir that gathers voices with speed, a moan when you lift off, a bell that tolls when you stop, a growl under hard throttle - and one scream per REV press.",
