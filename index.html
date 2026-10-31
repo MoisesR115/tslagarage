@@ -277,6 +277,10 @@
         flex: 1; border: 1px dashed var(--line); border-radius: 10px; padding: 8px 12px;
         font-size: 14px; color: var(--muted); display: flex; align-items: center;
       }
+      /* REV button lives in the cluster foot now (moved Oct 31 at
+         Moises's request, into the old status line's slot; the
+         status text moved down to the controls card). */
+      .cluster-foot .rev-btn { flex: 1; width: auto; align-self: stretch; }
       .cluster.shift .gauge-wrap svg .face { stroke: var(--amber); }
       @media (prefers-reduced-motion: no-preference) {
         .cluster.shift .gear-box { animation: shiftflash 0.5s steps(2, start) infinite; }
@@ -511,7 +515,7 @@
               <div class="ctl-label" style="margin-top:16px;">Sound</div>
               <button class="toggle bg-toggle" id="bgAudioBtn" aria-pressed="true"><span class="pip"></span>Play sound in the background</button>
               <p class="settings-note">Turn off to play your own music alongside: sounds then only play while the browser is open.</p>
-              <p class="settings-note">Build: <span id="buildStamp">build 2026-10-30 19:16 PDT</span></p>
+              <p class="settings-note">Build: <span id="buildStamp">build 2026-10-31 13:12 PDT</span></p>
             </div>
           </div>
           <div class="scenes">
@@ -579,7 +583,7 @@
               <div class="g-label">Gear</div>
               <div class="g-row"><span class="g-num" id="gearNum">N</span><span class="shift-arrow" id="shiftArrow" aria-hidden="true"></span></div>
             </div>
-            <div class="mode-status" id="modeStatus">Start the engine, then hold the throttle pedal (or hold W) to drive.</div>
+            <button class="rev-btn" id="revBtn" aria-pressed="false">Hold to Rev</button>
           </div>
         </section>
 
@@ -690,7 +694,7 @@
           </div>
 
           <div>
-            <button class="rev-btn" id="revBtn" aria-pressed="false">Hold to Rev</button>
+            <div class="mode-status" id="modeStatus">Start the engine, then hold the throttle pedal (or hold W) to drive.</div>
             <p class="rev-hint">Stopped at a light? Hold REV (or the <kbd>R</kbd> key) and it barks. Let go and the revs fall back to idle, crackling on the way down.</p>
           </div>
 
@@ -734,7 +738,7 @@
       <footer>
         <span>Location is used only to measure speed in GPS mode and never leaves your browser.</span>
         <span>Expect a beat of lag in GPS mode - phone GPS refreshes about once a second.</span>
-        <span>build 2026-10-30 19:16 PDT</span>
+        <span>build 2026-10-31 13:12 PDT</span>
       </footer>
     </div>
 
@@ -847,7 +851,7 @@
           pipeReflection: -0.18, pipeDamping: 0.55,
           formants: [[58,1.3,0.05],[105,3.0,3.0],[206,2.0,3.5],[430,2.5,0.5],[900,1.3,0.35],[1800,1.5,0.05]], formantDry: 0.17,
           pulseMsIdle: 6.5, pulseMsRedline: 3.4, noise: 0, jitter: 0.06, trim: 0.03, lope: 2.6,
-          mufflerLo: 650, mufflerHi: 1700, bodyHz: 102, bodyDb: 2, intake: 0.07, intakeHz: 600,
+          mufflerLo: 650, mufflerHi: 1700, bodyHz: 102, bodyDb: 2, intake: 0, intakeHz: 600,
           whine: 0, whineRatio: 0, crackle: 0.04, popGain: 0.06, burble: 0.12, drive: 0.72, gain: 0.41, shiftTime: 0.65,
           revRiseBase: 350, revRiseGain: 900, revFallMin: 500, revFallRate: 0.35, flareRpm: 420,
           /* Researched build (Oct 26, 2026): the truck in Moises's
@@ -1017,7 +1021,22 @@
              did not crater (0.170 vs 0.166) and the idle
              just sounds drier. Note the hiss at cruise rpm
              is pulse harmonics in every variant, not these
-             layers. */
+             layers.
+             V10 (Oct 31): static under acceleration. Lab
+             bisection cleared jitter, crackle, pulse length,
+             the muffler cap, drive and the 206 ring; the
+             static was the intake layer, pink noise added
+             AFTER the muffler and saturation so nothing
+             downstream filters it, scaling with load squared.
+             On a hard pull it put the 2-5k band at -52.7
+             dBFS; intake 0.07 -> 0 drops that to -93 (the
+             synth's tonal floor) and costs 0.9 dB in its own
+             500-1k home band. Idle is bit-for-bit the v9
+             table since intake scales with load. Same build
+             moved the REV button into the gauge cluster
+             foot, in the old status line's slot, at his
+             request; the status text moved to the controls
+             card. */
           hannPulse: true, hannScale: 1.95,
           driveOS: 4, dcHz: 45, noiseTame: 0.7, airDb: 0.0, airHz: 3000,
           bedLevel: 0, bedHz: 220,
