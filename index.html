@@ -792,12 +792,12 @@
           firing: [[0,0],[90,1],[180,1],[270,0],[360,1],[450,0],[540,0],[630,1]],
           banks: [{ pipeMs: 3.4, pan: -0.5, tune: 1.0 }, { pipeMs: 3.1, pan: 0.5, tune: 1.08 }],
           pipeReflection: -0.5, pipeDamping: 0.28,
-          formants: [[52,1.2,1.0],[205,0.9,1.0],[760,1.4,2.0],[1650,1.7,2.6],[3100,2.2,0.5],[5100,2.0,0.3]], formantDry: 0.34,
-          pulseMsIdle: 5.0, pulseMsRedline: 0.5, noise: 0.7, jitter: 0.025, trim: 0.06, lope: 0.05,
-          mufflerLo: 1600, mufflerHi: 9500, bodyHz: 60, bodyDb: 7, intake: 0.1, intakeHz: 700,
+          formants: [[44,1.3,1.3],[160,1.0,1.3],[420,1.2,1.9],[900,1.4,1.7],[1850,1.7,0.7],[3600,2.0,0.15]], formantDry: 0.30,
+          pulseMsIdle: 6.5, pulseMsRedline: 1.0, noise: 0.7, jitter: 0.025, trim: 0.06, lope: 0.05,
+          mufflerLo: 1100, mufflerHi: 5200, bodyHz: 46, bodyDb: 12, intake: 0.1, intakeHz: 700,
           whine: 0.06, whineRatio: 21.3,
           blower: { boostLoad: [0.2, 0.7], harmonics: [1, 0.87, 0.44, 0.32, 0.28], voices: [[1, 1], [1.0022, 0.85], [0.9963, 0.6]] },
-          crackle: 0.8, popGain: 0.65, dsCrackle: 2.0, burble: 1.8, drive: 3.4, gain: 0.6, shiftTime: 0.16,
+          crackle: 0.8, popGain: 0.65, dsCrackle: 2.0, burble: 1.8, drive: 3.0, gain: 0.6, shiftTime: 0.16,
           /* Added Nov 14, 2026 at Moises's request for "the Jaguar
              that sounds like a Jaguar" - the gas car, not the I-PACE.
              Method follows the Hellcat (the sim's other supercharged
@@ -806,7 +806,16 @@
              AJ-V8 - formant energy pushed up for the top-end scream,
              a wider-open muffler law for the active exhaust, and the
              crackle / pop / burble family turned up past the Hellcat,
-             which is the F-Type's signature on the overrun. Drivetrain
+             which is the F-Type's signature on the overrun.
+             RE-VOICED DEEP later on Nov 14 at Moises's direction -
+             "very deep roar, just like a real jaguar": measured from
+             his reference Short, the real bark carries ~52% of its
+             energy under 250 Hz with a ~450 Hz centroid, so the
+             formant stack now sits at the bottom (44/160/420/900),
+             body resonance dropped to 46 Hz and raised to 12 dB,
+             muffler top closed to 5,200 Hz, pulses lengthened
+             (6.5 ms idle / 1.0 ms redline) and drive eased to 3.0.
+             Deeper than the Hellcat on purpose; his ear decides. Drivetrain
              is the real P575 spec: ZF 8HP ratios, 2.56 final drive,
              305/30R20 rear tyre (2.17 m), 700 Nm, 1,818 kg. First-pass
              voicing from the numbers, not from a reference recording;
