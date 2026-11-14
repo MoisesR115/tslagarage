@@ -813,6 +813,17 @@
              his verdict pending. Photo: 2020 F-Type R V8 AWD by
              Calreyn88, via Wikimedia Commons. */
           hannPulse: true,
+          /* Startup re-timed Nov 14, 2026 from Moises's reference
+             Short of a real F-Type cold start: the bark lands almost
+             immediately (0.35 s of crank, not the generic 0.9), the
+             catch flares to ~2,200 rpm at full load with no crank
+             muting (active exhaust wide open, which is the F-Type's
+             cold-start party trick), then settles to the 700 rpm
+             idle over ~2.2 s. Measured from the reference audio:
+             full loudness inside 0.15 s, flare decaying through
+             ~2 s, lopey idle established by ~2.7 s. */
+          startCrankT: 0.35, startCatchT: 0.3, startFlareRpm: 2200,
+          startTotal: 2.8, startLoad: 1.0, startAmp: 1.0,
           driveOS: 2, dcHz: 26, noiseTame: 1, airDb: 1.5, airHz: 3400,
           comp: { threshold: -7, knee: 12, ratio: 2.5, release: 0.26 },
           ratios: [4.70,3.13,2.10,1.67,1.28,1.00,0.84,0.67], finalDrive: 2.56, tireCirc: 2.17, char: 0.92 },
@@ -1680,7 +1691,7 @@
              the same ratio so the fallback tracks the worklet. */
           amp = (E.gain || 0.6) * (0.28 + 0.72 * Math.pow(clamp(S.synthLoad, 0, 1), 0.8)) * (0.8 + 0.35 * frac) * E.trimArr[ev.cyl] * (1 + (Math.random() - 0.5) * 2 * E.jitter) * 1.6 * ((E.hannScale || 1.5) / 1.5);
         }
-        if (S.cranking > 0) amp *= 0.7;
+        if (S.cranking > 0) amp *= (E.startAmp != null ? E.startAmp : 0.7);
         if (S.limitCut || S.ignCut) {
           /* Ignition cut: air-pumping pulse at 18%, plus a chance of a
              crack in the hot exhaust - never total silence. */
@@ -2309,22 +2320,28 @@
         }
         if (S.gearbox === "auto") S.prevDemand = clamp(S.throttleDemand, 0, 1);
 
-        /* starter crank + catch + settle (teslasound timing) */
+        /* starter crank + catch + settle (teslasound timing, with
+           per-engine overrides for cars whose real start has its own
+           shape - the F-Type's bark, below) */
         if (S.cranking > 0) {
           S.cranking -= dt;
           S.startElapsed += dt;
           var stE = S.startElapsed;
-          if (stE < 0.9) {
+          var crankT = E.startCrankT != null ? E.startCrankT : 0.9;
+          var catchEnd = crankT + (E.startCatchT != null ? E.startCatchT : 0.4);
+          var flareRpm = E.startFlareRpm || 1500;
+          var settleT = Math.max(0.1, (E.startTotal || 2.6) - catchEnd);
+          if (stE < crankT) {
             /* Crank: ~230 rpm wobbling at 6 Hz, weak turning-over. */
             targetRpm = 230 + 60 * Math.sin(2 * Math.PI * 6 * stE);
-          } else if (stE < 1.3) {
-            /* Catch: flare fast toward ~1,500 rpm. */
-            var cfE = (stE - 0.9) / 0.4; cfE = cfE * cfE * (3 - 2 * cfE);
-            targetRpm = 230 + (1500 - 230) * cfE;
+          } else if (stE < catchEnd) {
+            /* Catch: flare fast toward the flare rpm. */
+            var cfE = (stE - crankT) / (catchEnd - crankT); cfE = cfE * cfE * (3 - 2 * cfE);
+            targetRpm = 230 + (flareRpm - 230) * cfE;
           } else {
-            /* Settle: ease from the flare down to idle by 2.6 s. */
-            var sfE = clamp((stE - 1.3) / 1.3, 0, 1); sfE = sfE * sfE * (3 - 2 * sfE);
-            targetRpm = 1500 + (E.idle - 1500) * sfE;
+            /* Settle: ease from the flare down to idle. */
+            var sfE = clamp((stE - catchEnd) / settleT, 0, 1); sfE = sfE * sfE * (3 - 2 * sfE);
+            targetRpm = flareRpm + (E.idle - flareRpm) * sfE;
           }
           if (S.cranking <= 0) S.cranking = 0;
         } else if (S.flare > 0) {
@@ -2395,7 +2412,11 @@
           /* teslasound start loads: 0.02 turning over, 0.6 on the
              catch, decaying linearly through the settle. */
           var stL = S.startElapsed;
-          loadBase = stL < 0.9 ? 0.02 : stL < 1.3 ? 0.6 : Math.max(0, 0.6 * (1 - (stL - 1.3) / 1.3));
+          var crankTL = E.startCrankT != null ? E.startCrankT : 0.9;
+          var catchEndL = crankTL + (E.startCatchT != null ? E.startCatchT : 0.4);
+          var startLoad = E.startLoad != null ? E.startLoad : 0.6;
+          var settleTL = Math.max(0.1, (E.startTotal || 2.6) - catchEndL);
+          loadBase = stL < crankTL ? 0.02 : stL < catchEndL ? startLoad : Math.max(0, startLoad * (1 - (stL - catchEndL) / settleTL));
         }
         if (freeRev || (stationary && S.revPedal > 0.02)) loadBase = S.revPedal;
         if (S.blipTimer > 0) loadBase = Math.max(loadBase, 0.55); // rev-match blip
@@ -2821,7 +2842,7 @@
           if (!AC) buildAudio();
           applyEngineAudio();
           if (AC.state === "suspended") AC.resume();
-          S.running = true; S.cranking = 2.6; S.startElapsed = 0; S.gear = 1; S.shifting = 0;
+          S.running = true; S.cranking = S.engine.startTotal || 2.6; S.startElapsed = 0; S.gear = 1; S.shifting = 0;
           /* Inside the start gesture: when background mode is on,
              start the keeper MP3 playing - autoplay policies only
              allow that from a user gesture, and its registration
