@@ -790,14 +790,14 @@
           car: "Jaguar F-Type R P575 AWD (X152)", alt: "Dark green Jaguar F-Type R coupe at a car show",
           kind: "pulse", cyl: 8, idle: 700, redline: 6800, limiter: 6950,
           firing: [[0,0],[90,1],[180,1],[270,0],[360,1],[450,0],[540,0],[630,1]],
-          banks: [{ pipeMs: 3.4, pan: -0.5, tune: 1.0 }, { pipeMs: 3.1, pan: 0.5, tune: 1.08 }],
+          banks: [{ pipeMs: 3.6, pan: -0.5, tune: 1.0 }, { pipeMs: 2.7, pan: 0.5, tune: 1.14 }],
           pipeReflection: -0.5, pipeDamping: 0.28,
-          formants: [[44,1.3,1.3],[160,1.0,1.3],[420,1.2,1.9],[900,1.4,1.7],[1850,1.7,0.7],[3600,2.0,0.15]], formantDry: 0.30,
-          pulseMsIdle: 6.5, pulseMsRedline: 1.0, noise: 0.7, jitter: 0.025, trim: 0.06, lope: 0.05,
-          mufflerLo: 1100, mufflerHi: 5200, bodyHz: 46, bodyDb: 12, intake: 0.1, intakeHz: 700,
-          whine: 0.06, whineRatio: 21.3,
-          blower: { boostLoad: [0.2, 0.7], harmonics: [1, 0.87, 0.44, 0.32, 0.28], voices: [[1, 1], [1.0022, 0.85], [0.9963, 0.6]] },
-          crackle: 0.8, popGain: 0.65, dsCrackle: 2.0, burble: 1.8, drive: 3.0, gain: 0.6, shiftTime: 0.16,
+          formants: [[44,1.3,2.2],[85,1.0,1.8],[420,1.2,1.9],[900,1.4,1.7],[1850,1.7,0.7],[280,1.3,1.5]], formantDry: 0.20,
+          pulseMsIdle: 3.8, pulseMsRedline: 0.8, noise: 1.3, jitter: 0.06, trim: 0.16, lope: 0.7,
+          mufflerLo: 1100, mufflerHi: 4200, bodyHz: 46, bodyDb: 14, intake: 0.35, intakeHz: 550,
+          whine: 0.03, whineRatio: 21.3,
+          blower: { boostLoad: [0.2, 0.7], harmonics: [1, 0.8, 0.35, 0.2, 0.12], voices: [[1, 1], [1.0022, 0.85], [0.9963, 0.6]] },
+          crackle: 0.8, popGain: 0.65, dsCrackle: 2.0, burble: 1.8, drive: 3.0, gain: 0.28, shiftTime: 0.16,
           /* Added Nov 14, 2026 at Moises's request for "the Jaguar
              that sounds like a Jaguar" - the gas car, not the I-PACE.
              Method follows the Hellcat (the sim's other supercharged
