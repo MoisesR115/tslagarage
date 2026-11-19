@@ -515,7 +515,7 @@
               <div class="ctl-label" style="margin-top:16px;">Sound</div>
               <button class="toggle bg-toggle" id="bgAudioBtn" aria-pressed="true"><span class="pip"></span>Play sound in the background</button>
               <p class="settings-note">Turn off to play your own music alongside: sounds then only play while the browser is open.</p>
-              <p class="settings-note">Build: <span id="buildStamp">build 2026-11-19 11:41 PST</span></p>
+              <p class="settings-note">Build: <span id="buildStamp">build 2026-11-19 12:02 PST</span></p>
             </div>
           </div>
           <div class="scenes">
@@ -738,7 +738,7 @@
       <footer>
         <span>Location is used only to measure speed in GPS mode and never leaves your browser.</span>
         <span>Expect a beat of lag in GPS mode - phone GPS refreshes about once a second.</span>
-        <span>build 2026-11-19 11:41 PST</span>
+        <span>build 2026-11-19 12:02 PST</span>
       </footer>
     </div>
 
@@ -907,8 +907,30 @@
              untouched (intake 0.06, tameHann, airDb 0.55,
              duckBedStart, bedScale 0.4 are byte-identical). His
              ear decides. */
-          grainK: 2.6,
-          growlGain: 1.3, growlRate: 1.9, growlPulseHz: 45, growlHz: 550, growlBodyHz: 90,
+          /* Nov 19 follow-up, same day, his ear again: wind had
+             crept back in with the deep grain. Ablation renders
+             isolated it - at grainK 2.6 the presence band
+             (500-2500 Hz) carried 2-3x the confirmed build's
+             energy at idle and cruise and the inter-harmonic
+             fraction rose at cruise; with the grain switched off
+             every steady metric returned to the confirmed values
+             exactly, and a gain~0 capture proved the intake and
+             bed layers never moved. The warp is eased to 1.3
+             (pulse peak at ~41% instead of ~23%): presence and
+             IHF sit back on the confirmed build's numbers, the
+             match score improves to 44.13, and part of the pulse
+             identity survives (distance vs the Hellcat render
+             29.3, between the confirmed build's 28.9 and the
+             deep grain's 30.7). The growl trims 1.3 to 0.95: it
+             measured spectrally clean (96% of its energy on its
+             own 45 Hz comb, cleaner than the real animal), but
+             at full gain the start peaked at -0.6 dBFS and drove
+             this page's master compressor ~2 dB harder than the
+             confirmed build's start; at 0.95 the start peaks at
+             -2.1 dBFS and the compressor load matches. The
+             animal stays; the wind goes. His ear decides. */
+          grainK: 1.3,
+          growlGain: 0.95, growlRate: 1.9, growlPulseHz: 45, growlHz: 550, growlBodyHz: 90,
           /* Nov 19, 2026, at Moises's direction: the animal-roar
              start is OUT, the real F-Type start is back - the
              measured crank, bark, flare and settle above, with no
